@@ -21,12 +21,15 @@ pip3 install gcp-taskqueue
 server:
 
 ~~~python
-from fastapi_authenticator import CloudTask, cloud_task_auth
+from fastapi_authenticator import GoogleCloudTask, google_cloud_task, google_cloud_auth
 
 app = FastAPI()
 
 @app.post("/task1")
-def task_handler(task: CloudTask: Depends(cloud_task_auth)):
+def task_handler(
+    claims: dict = Depends(google_cloud_auth),
+    task: GoogleCloudTask: Depends(google_cloud_task)
+):
     ...
 ~~~
 

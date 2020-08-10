@@ -1,5 +1,6 @@
 import asyncio
 import time
+from typing import Iterable, Optional, Union
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -9,17 +10,25 @@ from pydantic import BaseModel
 from starlette import status
 from starlette.requests import Request
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
+
+# https://developers.google.com/identity/protocols/oauth2/openid-connect#discovery
+DEFAULT_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
 
-class CloudTaskAuth:
-    # https://developers.google.com/identity/protocols/oauth2/openid-connect#discovery
-    discovery_url = "https://accounts.google.com/.well-known/openid-configuration"
-
-    def __init__(self):
+class GoogleCloudAuth:
+    def __init__(
+        self,
+        audience: str = None,
+        issuer: Union[str, Iterable[str], None] = "https://accounts.google.com",
+        discovery_url: str = DEFAULT_DISCOVERY_URL,
+    ):
+        self.audience = audience
+        self.issuer = issuer
+        self.discovery_url = discovery_url
         self._jwks_uri = None
-        self._public_keys = None
-        self._public_keys_timestamp = 0
+        self._public_keys: Optional[list] = None
+        self._public_keys_timestamp: float = 0.0
         self._lock = asyncio.Lock()
 
     async def _get_jwk_uri(self, client):
@@ -44,46 +53,55 @@ class CloudTaskAuth:
         self,
         request: Request,
         token: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-    ):
-        if request.headers.get("user-agent") != "Google-Cloud-Tasks":
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid user agent")
-        header = jwt.get_unverified_header(token.credentials)
+    ) -> dict:
+        jwt_header = jwt.get_unverified_header(token.credentials)
         await self._fetch_public_keys()
-        for public_key in self._public_keys:
-            if public_key["kid"] == header["kid"]:
+        for public_key in self._public_keys or []:
+            if public_key["kid"] == jwt_header["kid"]:
                 try:
                     claims = jwt.decode(
-                        token.credentials, public_key, audience=str(request.url),
+                        token.credentials,
+                        public_key,
+                        audience=self.audience or str(request.url),
+                        issuer=self.issuer,
                     )
                 except Exception as e:
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail=f"Invalid Token {e}",
                     )
-                break
+                return claims
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown Token"
             )
 
-        hs = request.headers
-        return CloudTask(
-            queue_name=hs["x-cloudtasks-queuename"],
-            name=hs["x-cloudtasks-taskname"],
-            retry_count=int(hs["x-cloudtasks-taskretrycount"]),
-            execution_count=int(hs["x-cloudtasks-taskexecutioncount"]),
-            eta=float(hs["x-cloudtasks-tasketa"]),
-            claims=claims,
-        )
+
+google_cloud_auth = GoogleCloudAuth()
 
 
-cloud_task_auth = CloudTaskAuth()
+def google_cloud_task(request: Request):
+    if request.headers.get("user-agent") != "Google-Cloud-Tasks":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid user agent")
+    hs = request.headers
+    return GoogleCloudTask(
+        queue_name=hs["x-cloudtasks-queuename"],
+        name=hs["x-cloudtasks-taskname"],
+        retry_count=int(hs["x-cloudtasks-taskretrycount"]),
+        execution_count=int(hs["x-cloudtasks-taskexecutioncount"]),
+        eta=float(hs["x-cloudtasks-tasketa"]),
+    )
 
 
-class CloudTask(BaseModel):
+def google_cloud_scheduler(request: Request):
+    if request.headers.get("user-agent") != "Google-Cloud-Scheduler":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid user agent")
+    return request.headers.get("x-cloudscheduler") == "true"
+
+
+class GoogleCloudTask(BaseModel):
     queue_name: str
     name: str
     retry_count: int
     execution_count: int
     eta: float
-    claims: dict
