@@ -1,5 +1,5 @@
 # fastapi-authenticator
-from fastapi import Depends, FastAPI
+
 fastapi authenticator for google cloud tasks
 
 ## Installation
@@ -21,6 +21,7 @@ pip3 install gcp-taskqueue
 server:
 
 ~~~python
+from fastapi import Depends, FastAPI
 from fastapi_authenticator import GoogleCloudTask, google_cloud_task, google_cloud_auth
 
 app = FastAPI()
