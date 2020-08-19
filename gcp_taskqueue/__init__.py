@@ -37,6 +37,7 @@ class TaskQueue:
         method: str = "POST",
         in_seconds: Union[int, float] = None,
         deadline: int = None,
+        audience: str = None,
     ) -> Task:
         if not url.startswith(("http", "https")):
             raise ValueError("url must starts with http or https")
@@ -59,6 +60,8 @@ class TaskQueue:
                 "service_account_email": self.credentials.service_account_email
             },
         }
+        if audience is not None:
+            http_request["oidc_token"]["audience"] = audience
         if task is not None:
             http_request["body"] = json.dumps(task).encode()
         task = {"http_request": http_request}
@@ -91,6 +94,7 @@ class TaskQueue:
         method: str = "POST",
         in_seconds: Union[int, float] = None,
         deadline: int = None,
+        audience: str = None,
     ) -> Task:
         if not relative_uri.startswith("/"):
             raise ValueError("relative_uri must starts with /")
@@ -114,6 +118,8 @@ class TaskQueue:
                 "service_account_email": self.credentials.service_account_email
             },
         }
+        if audience is not None:
+            app_engine_http_request["oidc_token"]["audience"] = audience
         if task is not None:
             app_engine_http_request["body"] = json.dumps(task).encode()
         task = {"app_engine_http_request": app_engine_http_request}
