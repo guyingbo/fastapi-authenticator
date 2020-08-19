@@ -8,7 +8,7 @@ from google.cloud.tasks_v2.types import Task  # type: ignore
 from google.protobuf import timestamp_pb2
 from google.cloud.tasks_v2.types import Duration
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 class TaskQueue:
