@@ -3,12 +3,13 @@ from datetime import datetime, timedelta
 from typing import Union
 
 from google import auth  # type: ignore
+from google.auth.transport._http_client import Request
 from google.cloud.tasks_v2 import CloudTasksClient  # type: ignore
 from google.cloud.tasks_v2.types import Task  # type: ignore
-from google.protobuf import timestamp_pb2
 from google.cloud.tasks_v2.types import Duration
+from google.protobuf import timestamp_pb2
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 class TaskQueue:
@@ -23,6 +24,8 @@ class TaskQueue:
         self.client = cloud_tasks_client or CloudTasksClient()
         self.project_id = project_id or auth.default()[1]
         self.credentials, self.project_id = auth.default()
+        if self.credentials.service_account_email == "default":
+            self.credentials.refresh(Request())
         self.location_id = location_id
         self.queue_id = queue_id
 

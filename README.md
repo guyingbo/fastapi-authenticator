@@ -43,3 +43,7 @@ queue = TaskQueue(queue_id="your-queue-name")
 
 queue.create_http_task("https://url", deadline=300)
 ~~~
+
+## Deployment
+
+`Service Account User` Role is needed for the client to generate oidc token.
